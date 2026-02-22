@@ -1,5 +1,20 @@
 import json
 import psycopg2
+from exporters.exporter_mapping import exporter_mapping
+import argparse
+
+parser=argparse.ArgumentParser()
+parser.add_argument("--format", default="json", help="Format of file")
+parser.add_argument("--students_path", default="students.json", help="Path to students file")
+parser.add_argument("--room_path", default="rooms.json", help="Path to room file")
+
+args=parser.parse_args()
+export_format=args.format
+students_file=args.students_path
+room_file=args.room_path
+
+
+exporter=exporter_mapping[export_format]
 
 conn = psycopg2.connect(
     dbname="mydatabase",
@@ -11,9 +26,8 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 
 
-
 #room table
-with open("rooms.json", "r", encoding="utf-8") as f:
+with open(room_file, "r", encoding="utf-8") as f:
     data_rooms = json.load(f)
 
 create_rooms_table_query="""
@@ -38,10 +52,10 @@ for room in data_rooms:
 
 
 #student table
-with open("students.json", "r", encoding="utf-8") as f:
+with open(students_file, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-create_table_query="""
+create_students_table_query="""
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -51,7 +65,7 @@ CREATE TABLE IF NOT EXISTS students (
 );
 
 """
-cur.execute(create_table_query)
+cur.execute(create_students_table_query)
 
 insert_query = """
 INSERT INTO students (id, name, birthday, room, sex)
@@ -68,19 +82,73 @@ for student in data:
         student["sex"]
     ))
 
-select_query= """
+room_list_query= """
 SELECT
     rooms.id,
     COUNT(students.name) AS students_count
 FROM rooms
-LEFT JOIN students ON rooms.id = students.room
+INNER JOIN students ON rooms.id = students.room
 GROUP BY rooms.id;
 """
-cur.execute(select_query)
 
-results = cur.fetchall()
-for row in results:
-    print(row)
+
+min_age_rooms_query="""
+SELECT
+    rooms.name,
+    CAST(AVG(EXTRACT(YEAR FROM age(students.birthday))) AS INTEGER) AS avg_age
+    
+FROM students
+INNER JOIN rooms ON students.room=rooms.id
+GROUP BY rooms.name
+ORDER BY avg_age
+LIMIT 5;
+"""
+
+max_diference_age_query="""
+SELECT
+    rooms.name,
+    CAST(MAX(EXTRACT(YEAR FROM age(students.birthday)))
+       - MIN(EXTRACT(YEAR FROM age(students.birthday)))AS INTEGER) AS diference_age
+   
+FROM students
+INNER JOIN rooms ON students.room=rooms.id
+GROUP BY rooms.name
+ORDER BY diference_age DESC
+LIMIT 5;
+"""
+
+diference_sex_rooms_query="""
+SELECT rooms.name
+FROM students
+INNER JOIN rooms ON students.room=rooms.id
+GROUP BY rooms.name
+HAVING COUNT(DISTINCT sex) > 1;
+"""
+
+
+cur.execute(room_list_query)
+column_names = [desc[0] for desc in cur.description]
+rows = cur.fetchall()
+exporter.export(column_names, rows,"result_room_students_count")
+
+
+cur.execute(min_age_rooms_query)
+column_names = [desc[0] for desc in cur.description]
+rows = cur.fetchall()
+exporter.export(column_names,rows, "result_min_room_students_query")
+
+
+cur.execute(max_diference_age_query)
+column_names = [desc[0] for desc in cur.description]
+rows = cur.fetchall()
+exporter.export(column_names,rows, "result_max_age_diference_rooms_query")
+
+
+cur.execute(diference_sex_rooms_query)
+column_names = [desc[0] for desc in cur.description]
+rows = cur.fetchall()
+exporter.export(column_names,rows, "result_diference_sex_rooms_query")
+
 
 conn.commit()
 cur.close()
