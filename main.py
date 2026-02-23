@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL
     );
+
 """
 cur.execute(create_rooms_table_query)
 
@@ -63,7 +64,9 @@ CREATE TABLE IF NOT EXISTS students (
     room INT REFERENCES rooms(id),
     sex CHAR(1) CHECK (sex IN ('M', 'F'))
 );
-
+    
+CREATE INDEX index_students_room 
+ON students(room);
 """
 cur.execute(create_students_table_query)
 
