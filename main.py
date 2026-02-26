@@ -1,5 +1,7 @@
 import json
 import psycopg2
+
+from database.studentmanager import StudentsTable
 from exporters.exporter_mapping import exporter_mapping
 import argparse
 from database.connection import DatabaseConnection
@@ -49,79 +51,15 @@ with DatabaseConnection() as conn:
 
 
 
+        students_con=StudentsTable(conn)
+        students_con.create_students_table_query()
+        students_con.insert_query(data_students)
 
-        create_students_table_query="""
-        CREATE TABLE IF NOT EXISTS students (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            birthday TIMESTAMP NOT NULL,
-            room INT REFERENCES rooms(id),
-            sex CHAR(1) CHECK (sex IN ('M', 'F'))
-        );
-            
-        CREATE INDEX IF NOT EXISTS index_students_room
-        ON students(room);
-        """
-        cur.execute(create_students_table_query)
-
-        insert_query = """
-        INSERT INTO students (id, name, birthday, room, sex)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO NOTHING;
-        """
-
-        for student in data_students:
-            cur.execute(insert_query, (
-                student["id"],
-                student["name"],
-                student["birthday"],
-                student["room"],
-                student["sex"]
-            ))
-
-        room_list_query= """
-        SELECT
-            rooms.id,
-            COUNT(students.name) AS students_count
-        FROM rooms
-        INNER JOIN students ON rooms.id = students.room
-        GROUP BY rooms.id;
-        """
-
-
-        min_age_rooms_query="""
-        SELECT
-            rooms.name,
-            CAST(AVG(EXTRACT(YEAR FROM age(students.birthday))) AS INTEGER) AS avg_age
-            
-        FROM students
-        INNER JOIN rooms ON students.room=rooms.id
-        GROUP BY rooms.name
-        ORDER BY avg_age
-        LIMIT 5;
-        """
-
-        max_diference_age_query="""
-        SELECT
-            rooms.name,
-            CAST(MAX(EXTRACT(YEAR FROM age(students.birthday)))
-               - MIN(EXTRACT(YEAR FROM age(students.birthday)))AS INTEGER) AS diference_age
-           
-        FROM students
-        INNER JOIN rooms ON students.room=rooms.id
-        GROUP BY rooms.name
-        ORDER BY diference_age DESC
-        LIMIT 5;
-        """
-
-        diference_sex_rooms_query="""
-        SELECT rooms.name
-        FROM students
-        INNER JOIN rooms ON students.room=rooms.id
-        GROUP BY rooms.name
-        HAVING COUNT(DISTINCT sex) > 1;
-        """
-
+        results = [
+            ("result_min_room_students_query", students_con.min_age_rooms_query()),
+            ("result_max_age_difference_rooms_query", students_con.max_diference_age_query()),
+            ("result_diference_sex_rooms_query", students_con.diference_sex_rooms_query())
+        ]
 
         cur.execute(room_list_query)
         column_names = [desc[0] for desc in cur.description]
