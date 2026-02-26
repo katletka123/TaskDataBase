@@ -2,6 +2,7 @@ import json
 import psycopg2
 from exporters.exporter_mapping import exporter_mapping
 import argparse
+from database.connection import DatabaseConnection
 
 parser=argparse.ArgumentParser()
 parser.add_argument("--format", default="json", help="Format of file")
@@ -16,144 +17,136 @@ room_file=args.room_path
 
 exporter=exporter_mapping[export_format]
 
-conn = psycopg2.connect(
-    dbname="mydatabase",
-    user="myuser",
-    password="mypassword",
-    host="localhost",
-    port="5433"
-)
-cur = conn.cursor()
 
+with DatabaseConnection() as conn:
+    with conn.cursor() as cur:
 
-#room table
-with open(room_file, "r", encoding="utf-8") as f:
-    data_rooms = json.load(f)
+        with open(room_file, "r", encoding="utf-8") as f:
+            data_rooms = json.load(f)
 
-create_rooms_table_query="""
-CREATE TABLE IF NOT EXISTS rooms (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL
-    );
+        create_rooms_table_query="""
+        CREATE TABLE IF NOT EXISTS rooms (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL
+            );
+        
+        """
+        cur.execute(create_rooms_table_query)
 
-"""
-cur.execute(create_rooms_table_query)
-
-insert_rooms_query="""
-INSERT INTO rooms (id, name)
-VALUES (%s,%s) 
-ON CONFLICT (id) DO NOTHING;
-"""
-for room in data_rooms:
-    cur.execute(insert_rooms_query, (
-        room["id"],
-        room["name"]
-    ))
+        insert_rooms_query="""
+        INSERT INTO rooms (id, name)
+        VALUES (%s,%s) 
+        ON CONFLICT (id) DO NOTHING;
+        """
+        for room in data_rooms:
+            cur.execute(insert_rooms_query, (
+                room["id"],
+                room["name"]
+            ))
 
 
 
-#student table
-with open(students_file, "r", encoding="utf-8") as f:
-    data = json.load(f)
+        #student table
+        with open(students_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-create_students_table_query="""
-CREATE TABLE IF NOT EXISTS students (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    birthday TIMESTAMP NOT NULL,
-    room INT REFERENCES rooms(id),
-    sex CHAR(1) CHECK (sex IN ('M', 'F'))
-);
-    
-CREATE INDEX index_students_room 
-ON students(room);
-"""
-cur.execute(create_students_table_query)
+        create_students_table_query="""
+        CREATE TABLE IF NOT EXISTS students (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            birthday TIMESTAMP NOT NULL,
+            room INT REFERENCES rooms(id),
+            sex CHAR(1) CHECK (sex IN ('M', 'F'))
+        );
+            
+        CREATE INDEX IF NOT EXISTS index_students_room
+        ON students(room);
+        """
+        cur.execute(create_students_table_query)
 
-insert_query = """
-INSERT INTO students (id, name, birthday, room, sex)
-VALUES (%s, %s, %s, %s, %s)
-ON CONFLICT (id) DO NOTHING;
-"""
+        insert_query = """
+        INSERT INTO students (id, name, birthday, room, sex)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (id) DO NOTHING;
+        """
 
-for student in data:
-    cur.execute(insert_query, (
-        student["id"],
-        student["name"],
-        student["birthday"],
-        student["room"],
-        student["sex"]
-    ))
+        for student in data:
+            cur.execute(insert_query, (
+                student["id"],
+                student["name"],
+                student["birthday"],
+                student["room"],
+                student["sex"]
+            ))
 
-room_list_query= """
-SELECT
-    rooms.id,
-    COUNT(students.name) AS students_count
-FROM rooms
-INNER JOIN students ON rooms.id = students.room
-GROUP BY rooms.id;
-"""
-
-
-min_age_rooms_query="""
-SELECT
-    rooms.name,
-    CAST(AVG(EXTRACT(YEAR FROM age(students.birthday))) AS INTEGER) AS avg_age
-    
-FROM students
-INNER JOIN rooms ON students.room=rooms.id
-GROUP BY rooms.name
-ORDER BY avg_age
-LIMIT 5;
-"""
-
-max_diference_age_query="""
-SELECT
-    rooms.name,
-    CAST(MAX(EXTRACT(YEAR FROM age(students.birthday)))
-       - MIN(EXTRACT(YEAR FROM age(students.birthday)))AS INTEGER) AS diference_age
-   
-FROM students
-INNER JOIN rooms ON students.room=rooms.id
-GROUP BY rooms.name
-ORDER BY diference_age DESC
-LIMIT 5;
-"""
-
-diference_sex_rooms_query="""
-SELECT rooms.name
-FROM students
-INNER JOIN rooms ON students.room=rooms.id
-GROUP BY rooms.name
-HAVING COUNT(DISTINCT sex) > 1;
-"""
+        room_list_query= """
+        SELECT
+            rooms.id,
+            COUNT(students.name) AS students_count
+        FROM rooms
+        INNER JOIN students ON rooms.id = students.room
+        GROUP BY rooms.id;
+        """
 
 
-cur.execute(room_list_query)
-column_names = [desc[0] for desc in cur.description]
-rows = cur.fetchall()
-exporter.export(column_names, rows,"result_room_students_count")
+        min_age_rooms_query="""
+        SELECT
+            rooms.name,
+            CAST(AVG(EXTRACT(YEAR FROM age(students.birthday))) AS INTEGER) AS avg_age
+            
+        FROM students
+        INNER JOIN rooms ON students.room=rooms.id
+        GROUP BY rooms.name
+        ORDER BY avg_age
+        LIMIT 5;
+        """
+
+        max_diference_age_query="""
+        SELECT
+            rooms.name,
+            CAST(MAX(EXTRACT(YEAR FROM age(students.birthday)))
+               - MIN(EXTRACT(YEAR FROM age(students.birthday)))AS INTEGER) AS diference_age
+           
+        FROM students
+        INNER JOIN rooms ON students.room=rooms.id
+        GROUP BY rooms.name
+        ORDER BY diference_age DESC
+        LIMIT 5;
+        """
+
+        diference_sex_rooms_query="""
+        SELECT rooms.name
+        FROM students
+        INNER JOIN rooms ON students.room=rooms.id
+        GROUP BY rooms.name
+        HAVING COUNT(DISTINCT sex) > 1;
+        """
 
 
-cur.execute(min_age_rooms_query)
-column_names = [desc[0] for desc in cur.description]
-rows = cur.fetchall()
-exporter.export(column_names,rows, "result_min_room_students_query")
+        cur.execute(room_list_query)
+        column_names = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        exporter.export(column_names, rows,"result_room_students_count")
 
 
-cur.execute(max_diference_age_query)
-column_names = [desc[0] for desc in cur.description]
-rows = cur.fetchall()
-exporter.export(column_names,rows, "result_max_age_diference_rooms_query")
+        cur.execute(min_age_rooms_query)
+        column_names = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        exporter.export(column_names,rows, "result_min_room_students_query")
 
 
-cur.execute(diference_sex_rooms_query)
-column_names = [desc[0] for desc in cur.description]
-rows = cur.fetchall()
-exporter.export(column_names,rows, "result_diference_sex_rooms_query")
+        cur.execute(max_diference_age_query)
+        column_names = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        exporter.export(column_names,rows, "result_max_age_diference_rooms_query")
 
 
-conn.commit()
-cur.close()
-conn.close()
+        cur.execute(diference_sex_rooms_query)
+        column_names = [desc[0] for desc in cur.description]
+        rows = cur.fetchall()
+        exporter.export(column_names,rows, "result_diference_sex_rooms_query")
+
+
+    conn.commit()
+
 
