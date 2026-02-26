@@ -3,6 +3,7 @@ import psycopg2
 from exporters.exporter_mapping import exporter_mapping
 import argparse
 from database.connection import DatabaseConnection
+from reader.json_reader import JsonReader
 
 parser=argparse.ArgumentParser()
 parser.add_argument("--format", default="json", help="Format of file")
@@ -21,8 +22,10 @@ exporter=exporter_mapping[export_format]
 with DatabaseConnection() as conn:
     with conn.cursor() as cur:
 
-        with open(room_file, "r", encoding="utf-8") as f:
-            data_rooms = json.load(f)
+        reader=JsonReader()
+        data_rooms=reader.read_json(room_file)
+        data_students=reader.read_json((students_file))
+
 
         create_rooms_table_query="""
         CREATE TABLE IF NOT EXISTS rooms (
@@ -46,9 +49,6 @@ with DatabaseConnection() as conn:
 
 
 
-        #student table
-        with open(students_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
 
         create_students_table_query="""
         CREATE TABLE IF NOT EXISTS students (
@@ -70,7 +70,7 @@ with DatabaseConnection() as conn:
         ON CONFLICT (id) DO NOTHING;
         """
 
-        for student in data:
+        for student in data_students:
             cur.execute(insert_query, (
                 student["id"],
                 student["name"],
