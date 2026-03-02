@@ -22,69 +22,24 @@ exporter=exporter_mapping[export_format]
 
 
 with DatabaseConnection() as conn:
-    with conn.cursor() as cur:
 
-        reader=JsonReader()
-        data_rooms=reader.read_json(room_file)
-        data_students=reader.read_json((students_file))
+    reader=JsonReader()
+    data_rooms=reader.read_json(room_file)
+    data_students=reader.read_json(students_file)
 
+    students_con=StudentsTable(conn)
 
-        create_rooms_table_query="""
-        CREATE TABLE IF NOT EXISTS rooms (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL
-            );
-        
-        """
-        cur.execute(create_rooms_table_query)
+    students_con.create_students_table_query()
+    students_con.insert_query(data_students)
 
-        insert_rooms_query="""
-        INSERT INTO rooms (id, name)
-        VALUES (%s,%s) 
-        ON CONFLICT (id) DO NOTHING;
-        """
-        for room in data_rooms:
-            cur.execute(insert_rooms_query, (
-                room["id"],
-                room["name"]
-            ))
+    results = [
+        ("room_list_query",students_con.room_list_query()),
+        ("result_min_room_students_query", students_con.min_age_rooms_query()),
+        ("result_max_age_difference_rooms_query", students_con.max_diference_age_query()),
+        ("result_diference_sex_rooms_query", students_con.diference_sex_rooms_query())
+    ]
 
-
-
-        students_con=StudentsTable(conn)
-        students_con.create_students_table_query()
-        students_con.insert_query(data_students)
-
-        results = [
-            ("result_min_room_students_query", students_con.min_age_rooms_query()),
-            ("result_max_age_difference_rooms_query", students_con.max_diference_age_query()),
-            ("result_diference_sex_rooms_query", students_con.diference_sex_rooms_query())
-        ]
-
-        cur.execute(room_list_query)
-        column_names = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
-        exporter.export(column_names, rows,"result_room_students_count")
-
-
-        cur.execute(min_age_rooms_query)
-        column_names = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
-        exporter.export(column_names,rows, "result_min_room_students_query")
-
-
-        cur.execute(max_diference_age_query)
-        column_names = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
-        exporter.export(column_names,rows, "result_max_age_diference_rooms_query")
-
-
-        cur.execute(diference_sex_rooms_query)
-        column_names = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
-        exporter.export(column_names,rows, "result_diference_sex_rooms_query")
-
-
-    conn.commit()
+    for file_name, (columns,rows) in results:
+        exporter.export(columns,rows,file_name)
 
 

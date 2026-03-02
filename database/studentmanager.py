@@ -30,7 +30,15 @@ class StudentsTable(PostgresRepository):
         ON CONFLICT (id) DO NOTHING;
         """
         for student in data_students:
-            self.execute(query, (student.id, student.name, student.birthday, student.room, student.sex))
+            self.execute(
+                query,(
+                    student["id"],
+                    student["name"],
+                    student["birthday"],
+                    student["room"],
+                    student["sex"]
+                )
+            )
 
     def room_list_query(self):
         query="""
@@ -41,7 +49,7 @@ class StudentsTable(PostgresRepository):
         INNER JOIN students ON rooms.id = students.room
         GROUP BY rooms.id;
         """
-        return self.execute(query)
+        return self.execute(query,fetch=True)
 
     def  min_age_rooms_query(self):
         query="""
@@ -55,7 +63,7 @@ class StudentsTable(PostgresRepository):
         ORDER BY avg_age
         LIMIT 5;
         """
-        return self.execute(query)
+        return self.execute(query,fetch=True)
 
     def  max_diference_age_query(self):
         query="""
@@ -70,7 +78,7 @@ class StudentsTable(PostgresRepository):
         ORDER BY diference_age DESC
         LIMIT 5;
         """
-        return self.execute(query)
+        return self.execute(query,fetch=True)
 
     def diference_sex_rooms_query(self):
         query="""
@@ -80,4 +88,4 @@ class StudentsTable(PostgresRepository):
         GROUP BY rooms.name
         HAVING COUNT(DISTINCT sex) > 1;
         """
-        return self.execute(query)
+        return self.execute(query,fetch=True)
