@@ -17,7 +17,7 @@ class RoomTable(PostgresRepository):
             );
         
         """
-        self.execute(query)
+        self.execute_command(query)
 
     def insert_rooms_query(self, data_rooms):
         query = """
@@ -25,4 +25,7 @@ class RoomTable(PostgresRepository):
                 VALUES (%s, %s) ON CONFLICT (id) DO NOTHING; \
                 """
         for room in data_rooms:
-            self.execute(query, (room.id, room.name))
+            self.execute_command(query, (
+                room["id"],
+                room["name"]
+            ))

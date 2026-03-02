@@ -18,8 +18,8 @@ class StudentsTable(PostgresRepository):
             room INT REFERENCES rooms(id),
             sex CHAR(1) CHECK (sex IN ('M', 'F'))
         );"""
-        self.execute(query)
-        self.execute("""CREATE INDEX IF NOT EXISTS index_students_room
+        self.execute_command(query)
+        self.execute_command("""CREATE INDEX IF NOT EXISTS index_students_room
         ON students(room);
         """)
 
@@ -30,7 +30,7 @@ class StudentsTable(PostgresRepository):
         ON CONFLICT (id) DO NOTHING;
         """
         for student in data_students:
-            self.execute(
+            self.execute_command(
                 query,(
                     student["id"],
                     student["name"],
@@ -49,7 +49,7 @@ class StudentsTable(PostgresRepository):
         INNER JOIN students ON rooms.id = students.room
         GROUP BY rooms.id;
         """
-        return self.execute(query,fetch=True)
+        return self.select_command(query)
 
     def  min_age_rooms_query(self):
         query="""
@@ -63,7 +63,7 @@ class StudentsTable(PostgresRepository):
         ORDER BY avg_age
         LIMIT 5;
         """
-        return self.execute(query,fetch=True)
+        return self.select_command(query)
 
     def  max_diference_age_query(self):
         query="""
@@ -78,7 +78,7 @@ class StudentsTable(PostgresRepository):
         ORDER BY diference_age DESC
         LIMIT 5;
         """
-        return self.execute(query,fetch=True)
+        return self.select_command(query)
 
     def diference_sex_rooms_query(self):
         query="""
@@ -88,4 +88,4 @@ class StudentsTable(PostgresRepository):
         GROUP BY rooms.name
         HAVING COUNT(DISTINCT sex) > 1;
         """
-        return self.execute(query,fetch=True)
+        return self.select_command(query)
