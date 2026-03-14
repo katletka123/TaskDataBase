@@ -8,9 +8,10 @@ class Room:
     id: int
     name: str
 
+
 class RoomTable(PostgresRepository):
     def create_rooms_table_query(self):
-        query= """
+        query = """
         CREATE TABLE IF NOT EXISTS rooms (
             id SERIAL PRIMARY KEY,
             name VARCHAR(100) NOT NULL
@@ -25,7 +26,4 @@ class RoomTable(PostgresRepository):
                 VALUES (%s, %s) ON CONFLICT (id) DO NOTHING; \
                 """
         for room in data_rooms:
-            self.execute_command(query, (
-                room["id"],
-                room["name"]
-            ))
+            self.execute_command(query, (room["id"], room["name"]))

@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
     DB_CONFIG = {
         "dbname": os.getenv("dbname"),

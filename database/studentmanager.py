@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from database.tablemanager import PostgresRepository
 
+
 @dataclass
 class Student:
     id: int
@@ -8,9 +9,11 @@ class Student:
     birthday: str
     room: int
     sex: str
+
+
 class StudentsTable(PostgresRepository):
-    def  create_students_table_query(self):
-        query="""
+    def create_students_table_query(self):
+        query = """
         CREATE TABLE IF NOT EXISTS students (
             id SERIAL PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
@@ -23,25 +26,26 @@ class StudentsTable(PostgresRepository):
         ON students(room);
         """)
 
-    def insert_query(self,data_students):
-        query="""
+    def insert_query(self, data_students):
+        query = """
         INSERT INTO students (id, name, birthday, room, sex)
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (id) DO NOTHING;
         """
         for student in data_students:
             self.execute_command(
-                query,(
+                query,
+                (
                     student["id"],
                     student["name"],
                     student["birthday"],
                     student["room"],
-                    student["sex"]
-                )
+                    student["sex"],
+                ),
             )
 
     def room_list_query(self):
-        query="""
+        query = """
         SELECT
             rooms.id,
             COUNT(students.name) AS students_count
@@ -51,8 +55,8 @@ class StudentsTable(PostgresRepository):
         """
         return self.select_command(query)
 
-    def  min_age_rooms_query(self):
-        query="""
+    def min_age_rooms_query(self):
+        query = """
         SELECT
             rooms.name,
             CAST(AVG(EXTRACT(YEAR FROM age(students.birthday))) AS INTEGER) AS avg_age
@@ -65,8 +69,8 @@ class StudentsTable(PostgresRepository):
         """
         return self.select_command(query)
 
-    def  max_diference_age_query(self):
-        query="""
+    def max_diference_age_query(self):
+        query = """
         SELECT
             rooms.name,
             CAST(MAX(EXTRACT(YEAR FROM age(students.birthday)))
@@ -81,7 +85,7 @@ class StudentsTable(PostgresRepository):
         return self.select_command(query)
 
     def diference_sex_rooms_query(self):
-        query="""
+        query = """
         SELECT rooms.name
         FROM students
         INNER JOIN rooms ON students.room=rooms.id

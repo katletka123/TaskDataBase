@@ -1,6 +1,7 @@
 import psycopg2
 from config import Config
 
+
 class DatabaseConnection:
     def __enter__(self):
         self.conn = psycopg2.connect(**Config.DB_CONFIG)
