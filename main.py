@@ -29,6 +29,23 @@ with DatabaseConnection() as conn:
     students_con = StudentsTable(conn)
 
     students_con.create_students_table_query()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     students_con.insert_query(data_students)
 
     results = [
