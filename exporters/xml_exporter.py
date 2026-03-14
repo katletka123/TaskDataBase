@@ -4,7 +4,7 @@ from xml.dom import minidom
 
 
 class XMLExporter(Exporter):
-    def export(self,column_names, rows, file_name):
+    def export(self, column_names, rows, file_name):
         root = ET.Element("data")
         for row in rows:
             row_tag = ET.SubElement(root, "row")
@@ -12,10 +12,9 @@ class XMLExporter(Exporter):
                 element = ET.SubElement(row_tag, col_name)
                 element.text = str(value)
 
-        xml_str = ET.tostring(root, encoding='utf-8')
+        xml_str = ET.tostring(root, encoding="utf-8")
         parsed = minidom.parseString(xml_str)
         pretty_xml = parsed.toprettyxml(indent="  ")
 
         with open(f"{file_name}.xml", "w", encoding="utf-8") as f:
             f.write(pretty_xml)
-
